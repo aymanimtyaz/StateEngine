@@ -50,19 +50,19 @@ class _StateMachineBase:
 
         return state_to_handler_mapper
     
-    def _execute_handler(self, current_state, input):
+    def _execute_handler(self, current_state, *args, **kwargs):
         # executing a default state handler
         if (current_state is None or current_state in 
                 self._default_state_handler):
             if self._default_state_handler is None:
                 raise NoDefaultState
             current_state = list(self._default_state_handler.keys())[0]
-            new_state = self._default_state_handler[current_state](input)
+            new_state = self._default_state_handler[current_state](*args, **kwargs)
         # executing an intermediate state handler
         else:
             if current_state not in self._state_handlers:
                 raise NoHandlerAssociation(current_state)
-            new_state = self._state_handlers[current_state](input)
+            new_state = self._state_handlers[current_state](*args, **kwargs)
         return new_state
 
 class _StateStore:
@@ -137,11 +137,11 @@ class StateEngine(_StateMachineBase):
         """
         return _StateMachineBase._register_handler(self, state, default)
 
-    def execute(self, state, input):
+    def execute(self, state, *args, **kwargs):
         """
         Run the state machine by passing it a state and an input
         """
-        return _StateMachineBase._execute_handler(self, state, input)
+        return _StateMachineBase._execute_handler(self, state, *args, **kwargs)
 
 class IntegratedStateEngine(_StateMachineBase, _StateStore):
     """
@@ -192,7 +192,7 @@ class IntegratedStateEngine(_StateMachineBase, _StateStore):
         """
         return _StateMachineBase._register_handler(self, state, default)
 
-    def execute(self, uid, input, state=None):
+    def execute(self, uid, state=None, *args, **kwargs):
         """
         Run a state machine by passing it a uid and an input
 
@@ -227,7 +227,7 @@ class IntegratedStateEngine(_StateMachineBase, _StateStore):
                 _StateStore._create_or_update_state(
                     self, uid, list(self._default_state_handler.keys())[0])
         new_state = _StateMachineBase._execute_handler(
-            self, current_state, input)
+            self, current_state, *args, **kwargs)
         if new_state == None:
             _StateStore._delete_state(self, uid)
         else:

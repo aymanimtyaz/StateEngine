@@ -8,6 +8,7 @@ Using StateEngine to create a simple state machine based
 chatbot that takes the name and age of the user and echoes
 them back
 """
+
 from stateengine import StateEngine
 
 # dict person is a stand-in for a database
@@ -21,54 +22,48 @@ chatbot = StateEngine()
 
 # registering the default/starting state and its handler
 @chatbot.state_handler("default", default=True)
-def  start(input):
-	# the input isn't used here but it 
+def  start(_id, text):
+	# the input isn't used here but it
 	# must still be passed to the handler
 	# In this case the presence of input is
 	# the input itself, intuitively speaking
 	print("Hey! What's your name?")
 	# the handlers should only
 	# return the state to transition to
-	# Make sure that the states returned 
+	# Make sure that the states returned
 	# are valid, that is, are registered to a
 	# state handler
 	return  "ask_for_age"
-	
+
 # registering a state and its handler
 @chatbot.state_handler("ask_for_age")
-def  ask_for_age(input):
-	# multiple values in the input to the state machine
-	# must be sent as a tuple and unpacked as shown below
-	uid, text = input[0], input[1]
-	person[uid]["name"] = text
-	print(f"Welcome! {person[uid]['name']}. How old are you?")
+def  ask_for_age(_id, text):
+	person[_id]["name"] = text
+	print(f"Welcome! {person[_id]['name']}. How old are you?")
 	return  "give_final_output"
 
 # registering another state and its handler
 @chatbot.state_handler("give_final_output")
-def  give_final_output(input):
-	uid, text = input[0], input[1]
+def  give_final_output(_id, text):
 	try:
 		age = int(text)
 	except  ValueError  as e:
 		print("Your age is supposed to be numeric.")
 		return  "give_final_output"
-	person[uid]["age"] = age
+	person[_id]["age"] = age
 	print(
-		f"Hi!, {person[uid]['name']} who is {person[uid]['age']} years old!"
+		f"Hi!, {person[_id]['name']} who is {person[_id]['age']} years old!"
 		" Nice to meet you!")
 	return  None
 
-def main():  
+def  main():
 	# initializing a starting state value
 	# None states translate to the state defined as default
 	state=None
 	while  True:
-		# passing a state value and an input to the state machine
-		# the state machine will do a state transition based on the input
-		state = chatbot.execute(state=state, input=("example_person", input()))
+		state = chatbot.execute(state=state, _id="example_person", text=input())
 
-if __name__ == "__main__":
+if  __name__ == "__main__":
 	main()
 ```
 ## Installation
@@ -94,7 +89,6 @@ States can be assigned to state handlers using the ```StateEngine.state_handler(
 @state_machine.state_handler(state="example_state")
 def example_state_handler(input):
 	... 
-
 ```
 A default state can be assigned by passing ```default=True``` as an argument to ```state_handler```. Note that there can only be one default state.
 ```python
@@ -152,8 +146,8 @@ The default handler (if defined) for a state machine can be executed by passing 
 - The states' names should reflect what their handlers are supposed to do. This will make it easy to debug and maintain the state machine code in the future.
 
 ### To Do
+- [x] Make unpacking inputs to state handlers more Pythonic.
 - [ ] Use Redis to store state in ```IntegratedStateEngine```
-- [ ] Make unpacking inputs to state handlers more Pythonic.
 - [ ] Improve API documentation.
 
 ### Examples of StateEngine in use

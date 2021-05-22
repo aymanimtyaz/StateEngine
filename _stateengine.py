@@ -84,7 +84,8 @@ class _StateStore:
         return self._store.get(uid, None)
 
     def _delete_state(self, uid):
-        del self._store[uid]
+        if uid in self._store:
+            del self._store[uid]
 
 class StateEngine(_StateMachineBase):
     """
@@ -126,7 +127,7 @@ class StateEngine(_StateMachineBase):
     Methods
     -------
     state_handler(state, default=False)
-    execute(state, input)
+    execute(state, *args, **kwargs)
     """
     def __init__(self):
         super().__init__()
@@ -134,12 +135,28 @@ class StateEngine(_StateMachineBase):
     def state_handler(self, state, default=False):
         """
         Register a state to a state handler using a state_handler decorator
+
+        Params
+        ------
+        state:
+            The state for which the handler function is being defined.
+        default: Optional, default is False
+            Flags the handler for handling default/None states.
         """
         return _StateMachineBase._register_handler(self, state, default)
 
     def execute(self, state, *args, **kwargs):
         """
-        Run the state machine by passing it a state and an input
+        Run the state machine by passing it a state and inputs
+        All arguments after state will be passed as input to the state 
+        machine.
+
+        Params
+        ------
+        state:
+            The state which the state machine is currently in.
+        *args, **kwargs:
+            The inputs to the state machine.
         """
         return _StateMachineBase._execute_handler(self, state, *args, **kwargs)
 
@@ -180,7 +197,7 @@ class IntegratedStateEngine(_StateMachineBase, _StateStore):
     Methods
     -------
     state_handler(state, default=False)
-    execute(uid, input)
+    execute(uid, *args, **kwargs)
     """
     def __init__(self):
         _StateMachineBase.__init__(self)
@@ -189,19 +206,23 @@ class IntegratedStateEngine(_StateMachineBase, _StateStore):
     def state_handler(self, state, default=False):
         """
         Register a state to a state handler using a state_handler decorator
+
+        Params
+        ------
+        state:
+            The state for which the handler function is being defined.
+        default: Optional, default is False
+            Flags the handler for handling default/None states.
         """
         return _StateMachineBase._register_handler(self, state, default)
 
-    def execute(self, uid, state=None, *args, **kwargs):
+    def execute(self, uid, *args, **kwargs):
         """
-        Run a state machine by passing it a uid and an input
+        Run a state machine by passing it a uid and an input(s)
 
         The uid will be used to uniquely identify and store states in
-        the state store.
-        If a state value other than None is passed. The state get assigned 
-        to the uid and stored and the state machine is run with that state
-        instead of looking up the state from the state store, as it would 
-        do normally.
+        the state store. All arguments after the uid will be passed as
+        input to the state machine.
 
         Parameters
         ----------
@@ -209,26 +230,19 @@ class IntegratedStateEngine(_StateMachineBase, _StateStore):
             An value that can be used to uniquely identify a state machine.
             Maintaining the uniqueness of this value is the responsibility
             of the end user.
-        input:
-            Input to the state engine. This consists of all the information
+        *args, **kwargs:
+            Inputs to the state engine. This consists of all the information
             required by the state engine to successfully return a state after
             processing the input.
-        state: Optional
-            A state value. If this value is passed, state retrieval is not
-            done from the state store and this state gets passed to the state
-            machine instead.
         """
-        if state is not None:
-            current_state = state
-            _StateStore._create_or_update_state(self, uid, current_state)
-        else:
-            current_state = _StateStore._get_state(self, uid)
-            if current_state is None:
-                _StateStore._create_or_update_state(
-                    self, uid, list(self._default_state_handler.keys())[0])
+        current_state = _StateStore._get_state(self, uid)
         new_state = _StateMachineBase._execute_handler(
             self, current_state, *args, **kwargs)
-        if new_state == None:
+
+        # deleting the uid from the state store if the new state is
+        # the default state or None
+        if (new_state == None or 
+                new_state == list(self._default_state_handler.keys())[0]):
             _StateStore._delete_state(self, uid)
         else:
             _StateStore._create_or_update_state(self, uid, new_state)

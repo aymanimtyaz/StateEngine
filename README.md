@@ -147,6 +147,7 @@ The default handler (if defined) for a state machine can be executed by passing 
 
 ### To Do
 - [x] Make unpacking inputs to state handlers more Pythonic.
+- [ ] Allow a handler to handle multiple states.
 - [ ] Use Redis to store state in ```IntegratedStateEngine```
 - [ ] Improve API documentation.
 

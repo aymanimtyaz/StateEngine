@@ -14,7 +14,7 @@ StateEngine(_StateMachineBase)
 IntegratedStateEngine(_StateMachineBase, _StateStore)
 """
 
-from .errors import (NoHandlerAssociation, NoDefaultState, 
+from ._errors import (NoHandlerAssociation, NoDefaultState, 
     DefaultStateHandlerClash, InvalidStateType, StateHandlerClash,
     InvalidUIDType)
 

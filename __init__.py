@@ -19,4 +19,4 @@ __email__ = "aymanimtyaz@gmail.com"
 __license__ = "MIT"
 
 # Exposing the public interface
-from .stateengine import StateEngine, IntegratedStateEngine
+from ._stateengine import StateEngine, IntegratedStateEngine

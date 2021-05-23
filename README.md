@@ -108,7 +108,10 @@ new_state = state_machine.execute(state=some_state, input=some_input)
 ...
 ```
 A new state will be returned depending on the input and the logic defined in the corresponding handler.
-A practical way to make use of the state machine would be to run it in a loop, or as a response to an event such as an HTTP request
+A practical way to make use of the state machine would be to run it in a loop, or as a response to an event such as an HTTP request.
+
+### A note on ```None``` states
+The default handler (if defined) for a state machine can be executed by passing the corresponding state value OR ```None``` as the state argument in execute. If a default state handler is not defined and a ```None``` is passed, an exception will be raised.
 
 ### Using ```IntegratedStateEngine```
 ```IntegratedStateEngine``` essentially abstracts out the responsibility of handling and storing states away from the user.
@@ -117,24 +120,14 @@ The only difference in implementation between ```StateEngine``` and ```Integrate
 ```python
 ...
 uid = ...
-input = ...
-state_machine.execute(uid=uid, input=input)
+input1 = ...; input2 = ...; ...
+state_machine.execute(uid=uid, input1=input1, input2=input2, ...)
 ...
 ```
 The state for the state machine corresponding to ```uid``` will be retrieved and used to run the state machine. The new state value returned from the state handler will be assigned to ```uid```.
 
-A state value can also be passed to the state machine. It will override any state value associated with ```uid``` and be used to execute the state machine:
-```python
-...
-uid = ...
-input = ...
-state = ...
-state_machine.execute(uid=uid, input=input, state=state)
-...
-```
 ```IntegratedStateEngine``` uses a Python dictionary to map UIDs to states. This is not very scalable, for example if ```IntegratedStateEngine``` is used to respond to HTTP requests and many workers of the program are running; Sticky sessions will have to be used. This will be improved upon in a later update by using something like Redis to store states.
-### A note on ```None``` states
-The default handler (if defined) for a state machine can be executed by passing the corresponding state value OR ```None``` as the state argument in execute. If a default state handler is not defined and a ```None``` is passed, an exception will be raised.
+
 ### Important points
 - A handler function should only return states. Furthermore, it should only return states that are registered to a state handler. Returning an unregistered state will raise a ```NoHandlerAssociation``` exception.
 - The states can only be of types ```str```, ```int```, and ```float```. An ```InvalidStateType``` exception will be raised otherwise.
@@ -142,11 +135,14 @@ The default handler (if defined) for a state machine can be executed by passing 
 - Only one default state can exist for a state machine. Trying to assign more than one default state handle will raise a ```DefaultStateHandlerClash``` exception.
 - A default state is not necessary. However, if ```state=None``` is passed to ```execute```, and a default state handler is not defined. A ```NoDefaultState``` exception will be raised.
 - If using ```IntegratedStateEngine```, the ```uid``` passed to ```execute()``` should only be of types ```str```, ```int```, or ```float```. An ```InvalidUIDType``` exception will be raised otherwise.
+
 ### Good practices
 - The states' names should reflect what their handlers are supposed to do. This will make it easy to debug and maintain the state machine code in the future.
 
 ### To Do
 - [x] Make unpacking inputs to state handlers more Pythonic.
+- [ ] Allow a handler to handle multiple states.
+- [ ] Add a global ```current_state``` object that stores the current state.
 - [ ] Use Redis to store state in ```IntegratedStateEngine```
 - [ ] Improve API documentation.
 

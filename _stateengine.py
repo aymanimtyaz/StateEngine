@@ -47,6 +47,7 @@ class _StateMachineBase:
                     raise StateHandlerClash(state)
                 else:
                     self._state_handlers[state] = func
+            return func
 
         return state_to_handler_mapper
     

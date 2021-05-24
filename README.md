@@ -101,6 +101,20 @@ def example_state_handler(input):
 ```
 The state handler function should only return other states that have been registered with a state handler, signifying a state transition.
 
+### Assigning multiple states to a single state handler
+Multiple states can also be assigned to a handler. This can be done by stacking the ```state_handler``` decorator:
+```python
+...
+@state_machine.state_handler("state_1")
+@state_machine.state_handler("state_2")
+@state_machine.state_handler("state_3")
+def a_handler_function(input):
+	...
+	return ...
+...
+```
+The order in which the decorators for each state are stack does not matter.
+
 ### Running the state machine
 The state machine can be executed by passing it a state and an input. It should be run after all the state handlers have been defined. A state machine can be run using ```StateEngine.execute()``` as:
 ```python

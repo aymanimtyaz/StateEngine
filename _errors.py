@@ -10,6 +10,7 @@ DefaultStateHandlerClash()
 IncorrectStateType()
 StateHandlerClash()
 InvalidUIDType()
+OutsideHandlerContext()
 """
 class NoHandlerAssociation(Exception):
 
@@ -54,3 +55,9 @@ class InvalidUIDType(Exception):
     def __init__(self):
         super().__init__(
             "A UID Can only be of types 'str', 'int', or 'float'")
+
+class OutsideHandlerContext(Exception):
+
+    def __init__(self, var):
+        super().__init__(
+            f"Can not access \"{var}\" outside a handler context")

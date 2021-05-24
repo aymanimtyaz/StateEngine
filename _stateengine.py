@@ -14,14 +14,20 @@ StateEngine(_StateMachineBase)
 IntegratedStateEngine(_StateMachineBase, _StateStore)
 """
 
+import sys
+
 from ._errors import (NoHandlerAssociation, NoDefaultState, 
     DefaultStateHandlerClash, InvalidStateType, StateHandlerClash,
-    InvalidUIDType)
+    InvalidUIDType, OutsideHandlerContext)
 
 class _StateMachineBase:
     """
     The base class that implements the finite state machine
     """
+
+    # stores the current state, should only be accessed within a 
+    # handler's context
+    _current_state = None
 
     def __init__(self):
         self._state_handlers = {}
@@ -58,13 +64,36 @@ class _StateMachineBase:
             if self._default_state_handler is None:
                 raise NoDefaultState
             current_state = list(self._default_state_handler.keys())[0]
-            new_state = self._default_state_handler[current_state](*args, **kwargs)
+            self._current_state = current_state
+            default_handler = self._default_state_handler[current_state]
+            new_state = default_handler(*args, **kwargs)
+            self._current_state = None
         # executing an intermediate state handler
         else:
             if current_state not in self._state_handlers:
                 raise NoHandlerAssociation(current_state)
+            self._current_state = current_state    
             new_state = self._state_handlers[current_state](*args, **kwargs)
+            self._current_state = None
         return new_state
+
+    @property
+    def _get_current_state(self):
+        """
+        Returns the current state
+
+        Will raise an error if called from outside a handler context
+        """
+        # This if statement is absolute trash and will be improved
+        # later OwO
+        if (sys._getframe(2).f_code.co_name \
+                != list(self._default_state_handler.values())[0].__name__ \
+                and sys._getframe(2).f_code.co_name not in \
+                list(map(lambda f: f.__name__, \
+                list(self._state_handlers.values())))):
+            raise OutsideHandlerContext("current_state")
+        return self._current_state
+
 
 class _StateStore:
     """
@@ -129,6 +158,10 @@ class StateEngine(_StateMachineBase):
     -------
     state_handler(state, default=False)
     execute(state, *args, **kwargs)
+
+    Properties
+    ----------
+    current_state
     """
     def __init__(self):
         super().__init__()
@@ -160,6 +193,14 @@ class StateEngine(_StateMachineBase):
             The inputs to the state machine.
         """
         return _StateMachineBase._execute_handler(self, state, *args, **kwargs)
+
+    @property
+    def current_state(self):
+        """
+        Get the current state of a state machine, accessible only
+        within a handler context.
+        """
+        return self._get_current_state
 
 class IntegratedStateEngine(_StateMachineBase, _StateStore):
     """
@@ -198,7 +239,11 @@ class IntegratedStateEngine(_StateMachineBase, _StateStore):
     Methods
     -------
     state_handler(state, default=False)
-    execute(uid, *args, **kwargs)
+    execute(state, *args, **kwargs)
+
+    Properties
+    ----------
+    current_state
     """
     def __init__(self):
         _StateMachineBase.__init__(self)
@@ -247,3 +292,11 @@ class IntegratedStateEngine(_StateMachineBase, _StateStore):
             _StateStore._delete_state(self, uid)
         else:
             _StateStore._create_or_update_state(self, uid, new_state)
+
+    @property
+    def current_state(self):
+        """
+        Get the current state of a state machine, accessible only
+        within a handler context.
+        """
+        return self._get_current_state

@@ -23,8 +23,9 @@ chatbot = StateEngine()
 # registering the default/starting state and its handler
 @chatbot.state_handler("default", default=True)
 def  start(_id, text):
+	# _id and text are taken as inputs here
 	# the input isn't used here but it
-	# must still be passed to the handler
+	# must still be passed to the handler.
 	# In this case the presence of input is
 	# the input itself, intuitively speaking
 	print("Hey! What's your name?")
@@ -113,15 +114,16 @@ def a_handler_function(input):
 	return ...
 ...
 ```
-The order in which the decorators for each state are stack does not matter.
+The order in which the decorators for each state are stacked does not matter.
 
 ### Running the state machine
 The state machine can be executed by passing it a state and an input. It should be run after all the state handlers have been defined. A state machine can be run using ```StateEngine.execute()``` as:
 ```python
 ...
 some_state = ...
-some_input = ...
-new_state = state_machine.execute(state=some_state, input=some_input)
+some_input_1 = ...; some_input_2 = ...; ...
+new_state = state_machine.execute(
+	state=some_state, some_input_1=some_input_1, some_input_2=some_input_2, ...)
 ...
 ```
 A new state will be returned depending on the input and the logic defined in the corresponding handler.
@@ -155,7 +157,7 @@ state_machine.execute(uid=uid, input=input)
 ```
 The state for the state machine corresponding to ```uid``` will be retrieved and used to run the state machine. The new state value returned from the state handler will be assigned to ```uid```.
 
-```IntegratedStateEngine``` uses a Python dictionary to map UIDs to states. This is not very scalable, for example if ```IntegratedStateEngine``` is used to respond to HTTP requests and many workers of the program are running; Sticky sessions will have to be used. This will be improved upon in a later update by using something like Redis to store states.
+```IntegratedStateEngine``` uses a Python dictionary to map UIDs to states for many state machines. This is not very scalable, for example if ```IntegratedStateEngine``` is used to respond to HTTP requests and many workers of the program are running; Sticky sessions will have to be used. This will be improved upon in a later update by using something like Redis to store states.
 
 ### Important points
 - A handler function should only return states. Furthermore, it should only return states that are registered to a state handler. Returning an unregistered state will raise a ```NoHandlerAssociation``` exception.
@@ -167,7 +169,7 @@ The state for the state machine corresponding to ```uid``` will be retrieved and
 - The ```current_state``` property can only be accessed from within a handler context, that is, inside a handler function. Trying to access it from outside a handler function will raise a ```OutsideHandlerContext``` exception.
 
 ### Good practices
-- The states' names should reflect what their handlers are supposed to do. This will make it easy to maintain and debuga the state machine code in the future.
+- The states' names should reflect what their handlers are supposed to do. This will make it easy to maintain and debug the state machine code in the future.
 
 ### To Do
 -  [x] Make unpacking inputs to state handlers more Pythonic.
@@ -175,6 +177,7 @@ The state for the state machine corresponding to ```uid``` will be retrieved and
 - [ ] Add a global ```current_state``` object that stores the current state.
 - [ ] Use Redis to store state in ```IntegratedStateEngine```
 - [ ] Improve API documentation.
+- [ ] Add use cases in the docs.
 
 ### Examples of StateEngine in use
 - [spndr](https://github.com/aymanimtyaz/spndr)

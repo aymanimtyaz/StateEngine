@@ -23,8 +23,9 @@ chatbot = StateEngine()
 # registering the default/starting state and its handler
 @chatbot.state_handler("default", default=True)
 def  start(_id, text):
+	# _id and text are taken as inputs here
 	# the input isn't used here but it
-	# must still be passed to the handler
+	# must still be passed to the handler.
 	# In this case the presence of input is
 	# the input itself, intuitively speaking
 	print("Hey! What's your name?")
@@ -66,6 +67,7 @@ def  main():
 if  __name__ == "__main__":
 	main()
 ```
+
 ## Installation
 The stateengine package is not on PyPi yet. To use stateengine, clone the repository and put it in the working directory of your project:
 ```
@@ -82,6 +84,7 @@ from stateengine import StateEngine
 state_machine = StateEngine()
 ...
 ```
+
 ### Assigning states to state handlers
 States can be assigned to state handlers using the ```StateEngine.state_handler()```  decorator function as:
 ```python
@@ -98,35 +101,63 @@ def example_state_handler(input):
 	... 
 ```
 The state handler function should only return other states that have been registered with a state handler, signifying a state transition.
+
+### Assigning multiple states to a single state handler
+Multiple states can also be assigned to a handler. This can be done by stacking the ```state_handler``` decorator:
+```python
+...
+@state_machine.state_handler("state_1")
+@state_machine.state_handler("state_2")
+@state_machine.state_handler("state_3")
+def a_handler_function(input):
+	...
+	return ...
+...
+```
+The order in which the decorators for each state are stacked does not matter.
+
 ### Running the state machine
 The state machine can be executed by passing it a state and an input. It should be run after all the state handlers have been defined. A state machine can be run using ```StateEngine.execute()``` as:
 ```python
 ...
 some_state = ...
-some_input = ...
-new_state = state_machine.execute(state=some_state, input=some_input)
+some_input_1 = ...; some_input_2 = ...; ...
+new_state = state_machine.execute(
+	state=some_state, some_input_1=some_input_1, some_input_2=some_input_2, ...)
 ...
 ```
 A new state will be returned depending on the input and the logic defined in the corresponding handler.
-A practical way to make use of the state machine would be to run it in a loop, or as a response to an event such as an HTTP request.
+A practical way to make use of the state machine would be to run it in a loop, or as a response to an event such as an HTTP request
+
+### Accessing the current state using the ```state_handler``` property
+```current_state``` is a property that can be used to access the current state from within a handler function. This may seem pointless at first glance, but becomes really useful when a handler is assigned to more than one state:
+```python
+...
+@state_machine.state_handler("state_1")
+@state_machine.state_handler("state_2")
+def a_handler_function(input):
+	print(f"The current state is {state_machine.current_state}")
+	return ...
+...
+```
 
 ### A note on ```None``` states
 The default handler (if defined) for a state machine can be executed by passing the corresponding state value OR ```None``` as the state argument in execute. If a default state handler is not defined and a ```None``` is passed, an exception will be raised.
 
 ### Using ```IntegratedStateEngine```
 ```IntegratedStateEngine``` essentially abstracts out the responsibility of handling and storing states away from the user.
-They must simple assign an ID for each state machine and ensure that the ID is unique.
+They must simply assign an ID for each state machine and ensure that the ID is unique.
 The only difference in implementation between ```StateEngine``` and ```IntegratedStateEngine``` is the way the machine is executed. All other code related to registering handlers will be the same:
 ```python
 ...
 uid = ...
-input1 = ...; input2 = ...; ...
-state_machine.execute(uid=uid, input1=input1, input2=input2, ...)
+input = ...
+state_machine.execute(uid=uid, input=input)
 ...
 ```
 The state for the state machine corresponding to ```uid``` will be retrieved and used to run the state machine. The new state value returned from the state handler will be assigned to ```uid```.
 
-```IntegratedStateEngine``` uses a Python dictionary to map UIDs to states. This is not very scalable, for example if ```IntegratedStateEngine``` is used to respond to HTTP requests and many workers of the program are running; Sticky sessions will have to be used. This will be improved upon in a later update by using something like Redis to store states.
+```IntegratedStateEngine``` uses a Python dictionary to map UIDs to states for many state machines. This is not very scalable, for example if ```IntegratedStateEngine``` is used to respond to HTTP requests and many workers of the program are running; Sticky sessions will have to be used. This will be improved upon in a later update by using something like Redis to store states.
 
 ### Important points
 - A handler function should only return states. Furthermore, it should only return states that are registered to a state handler. Returning an unregistered state will raise a ```NoHandlerAssociation``` exception.
@@ -135,16 +166,18 @@ The state for the state machine corresponding to ```uid``` will be retrieved and
 - Only one default state can exist for a state machine. Trying to assign more than one default state handle will raise a ```DefaultStateHandlerClash``` exception.
 - A default state is not necessary. However, if ```state=None``` is passed to ```execute```, and a default state handler is not defined. A ```NoDefaultState``` exception will be raised.
 - If using ```IntegratedStateEngine```, the ```uid``` passed to ```execute()``` should only be of types ```str```, ```int```, or ```float```. An ```InvalidUIDType``` exception will be raised otherwise.
+- The ```current_state``` property can only be accessed from within a handler context, that is, inside a handler function. Trying to access it from outside a handler function will raise a ```OutsideHandlerContext``` exception.
 
 ### Good practices
-- The states' names should reflect what their handlers are supposed to do. This will make it easy to debug and maintain the state machine code in the future.
+- The states' names should reflect what their handlers are supposed to do. This will make it easy to maintain and debug the state machine code in the future.
 
 ### To Do
-- [x] Make unpacking inputs to state handlers more Pythonic.
-- [ ] Allow a handler to handle multiple states.
+-  [x] Make unpacking inputs to state handlers more Pythonic.
+-  [x] Allow a handler to handle multiple states.
 - [ ] Add a global ```current_state``` object that stores the current state.
 - [ ] Use Redis to store state in ```IntegratedStateEngine```
 - [ ] Improve API documentation.
+- [ ] Add use cases in the docs.
 
 ### Examples of StateEngine in use
 - [spndr](https://github.com/aymanimtyaz/spndr)

@@ -150,14 +150,20 @@ They must simply assign an ID for each state machine and ensure that the ID is u
 The only difference in implementation between ```StateEngine``` and ```IntegratedStateEngine``` is the way the machine is executed. All other code related to registering handlers will be the same:
 ```python
 ...
+from stateengine import IntegratedStateEngine
+state_machine = IntegratedStateEngine()
 uid = ...
 input = ...
 state_machine.execute(uid=uid, input=input)
 ...
 ```
 The state for the state machine corresponding to ```uid``` will be retrieved and used to run the state machine. The new state value returned from the state handler will be assigned to ```uid```.
-
-```IntegratedStateEngine``` uses a Python dictionary to map UIDs to states for many state machines. This is not very scalable, for example if ```IntegratedStateEngine``` is used to respond to HTTP requests and many workers of the program are running; Sticky sessions will have to be used. This will be improved upon in a later update by using something like Redis to store states.
+By default, a python dictionary is used to store states. Setting the ```use_redis``` argument to ```True``` while initializing an ```IntegratedStateEngine``` object will cause ```IntegratedStateEngine``` to use Redis to store states, which can be more scalable:
+```python
+...
+state_machine = IntegratedStateEngine(use_redis=True)
+...
+```
 
 ### Important points
 - A handler function should only return states. Furthermore, it should only return states that are registered to a state handler. Returning an unregistered state will raise a ```NoHandlerAssociation``` exception.
@@ -167,6 +173,7 @@ The state for the state machine corresponding to ```uid``` will be retrieved and
 - A default state is not necessary. However, if ```state=None``` is passed to ```execute```, and a default state handler is not defined. A ```NoDefaultState``` exception will be raised.
 - If using ```IntegratedStateEngine```, the ```uid``` passed to ```execute()``` should only be of types ```str```, ```int```, or ```float```. An ```InvalidUIDType``` exception will be raised otherwise.
 - The ```current_state``` property can only be accessed from within a handler context, that is, inside a handler function. Trying to access it from outside a handler function will raise a ```OutsideHandlerContext``` exception.
+- If using ```IntegratedStateEngine``` with ```use_redis``` set to ```True```, make sure the Redis database that is being used as the state store is up and running properly, any problems with Redis will raise a ```RedisStateStoreError```.
 
 ### Good practices
 - The states' names should reflect what their handlers are supposed to do. This will make it easy to maintain and debug the state machine code in the future.
@@ -175,7 +182,7 @@ The state for the state machine corresponding to ```uid``` will be retrieved and
 -  [x] Make unpacking inputs to state handlers more Pythonic.
 -  [x] Allow a handler to handle multiple states.
 - [ ] Add a global ```current_state``` object that stores the current state.
-- [ ] Use Redis to store state in ```IntegratedStateEngine```
+-  [x] Use Redis to store state in ```IntegratedStateEngine```
 - [ ] Improve API documentation.
 - [ ] Add use cases in the docs.
 

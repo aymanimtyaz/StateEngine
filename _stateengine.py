@@ -16,9 +16,13 @@ IntegratedStateEngine(_StateMachineBase, _StateStore)
 
 import sys
 
-from ._errors import (NoHandlerAssociation, NoDefaultState, 
+import redis
+
+from ._errors import (
+    NoHandlerAssociation, NoDefaultState,
     DefaultStateHandlerClash, InvalidStateType, StateHandlerClash,
-    InvalidUIDType, OutsideHandlerContext)
+    InvalidUIDType, OutsideHandlerContext, RedisStateStoreError)
+
 
 class _StateMachineBase:
     """
@@ -26,7 +30,7 @@ class _StateMachineBase:
     """
 
     # stores the current state, should only be accessed within a 
-    # handler's context
+    # handler's context using _get_current_state property
     _current_state = None
 
     def __init__(self):
@@ -39,8 +43,8 @@ class _StateMachineBase:
         def state_to_handler_mapper(func):
             # states must be either a string, integer, or float
             if (not isinstance(state, (str, int, float, )) 
-                        or isinstance(state, bool)):
-                    raise InvalidStateType
+                    or isinstance(state, bool)):
+                raise InvalidStateType
 
             # assigning default state to its handler
             if default:
@@ -98,24 +102,46 @@ class _StateMachineBase:
 class _StateStore:
     """
     This class implements a store that can be used to abstract out the 
-    responsibility of storing states for different machines.
+    responsibility of storing states for different machines. Redis can
+    also be used as a state store.
     """
 
-    def __init__(self):
-        self._store = {}
+    def __init__(self, use_redis=False):
+        self._redis = use_redis
+        if not self._redis:
+            self._store = {}
+        else:
+            self._store = redis.Redis(decode_responses=True, db=1)
 
     def _create_or_update_state(self, uid, state):
-        if (not isinstance(uid, (str, int, float, )) 
+        if (not isinstance(uid, (str, int, float, ))
                 or isinstance(uid, bool)):
             raise InvalidUIDType
-        self._store[uid] = state
+        if self._redis is True:
+            try:
+                self._store.set(uid, state)
+            except redis.exceptions.ConnectionError as e:
+                raise RedisStateStoreError(str(e))
+        else:
+            self._store[uid] = state
 
     def _get_state(self, uid):
+        if self._redis is True:
+            try:
+                return self._store.get(uid)
+            except redis.exceptions.ConnectionError as e:
+                raise RedisStateStoreError(str(e))
         return self._store.get(uid, None)
 
     def _delete_state(self, uid):
+        if self._redis is True:
+            try:
+                self._store.delete(uid)
+            except redis.exceptions.ConnectionError as e:
+                raise RedisStateStoreError(str(e))
         if uid in self._store:
             del self._store[uid]
+
 
 class StateEngine(_StateMachineBase):
     """
@@ -123,7 +149,7 @@ class StateEngine(_StateMachineBase):
 
     Basic Usage
     -----------
-
+    ```
         import random
         import time
 
@@ -149,11 +175,7 @@ class StateEngine(_StateMachineBase):
             input = random.choice(["wake up", "go to sleep"])
             state = eng.execute(state, input)
             time.sleep(3)
-            Methods
-            -------
-            state_handler(state, default=False)
-            execute(state, input)
-
+    ```
     Methods
     -------
     state_handler(state, default=False)
@@ -202,9 +224,11 @@ class StateEngine(_StateMachineBase):
         """
         return self._get_current_state
 
+
 class IntegratedStateEngine(_StateMachineBase, _StateStore):
     """
-    Finite state machines using Flask like state-handler associations
+    Finite state machines using Flask like state-handler associations.
+    Comes with a built in state store.
 
     Basic Usage
     -----------
@@ -245,9 +269,21 @@ class IntegratedStateEngine(_StateMachineBase, _StateStore):
     ----------
     current_state
     """
-    def __init__(self):
+    def __init__(self, use_redis=False):
+        """
+        Initialize an IntegratedStateMachine object
+
+        IntegratedStateMachine objects come with state stores that abstract
+        away the responsibility of handling states, Redis can also be used
+        as a state store.
+
+        Params
+        ------
+        use_redis: Optional, default is False
+            Use Redis as a state store instead of a Python dict
+        """
         _StateMachineBase.__init__(self)
-        _StateStore.__init__(self)
+        _StateStore.__init__(self, use_redis=use_redis)
         
     def state_handler(self, state, default=False):
         """
@@ -287,7 +323,7 @@ class IntegratedStateEngine(_StateMachineBase, _StateStore):
 
         # deleting the uid from the state store if the new state is
         # the default state or None
-        if (new_state == None or 
+        if (new_state is None or
                 new_state == list(self._default_state_handler.keys())[0]):
             _StateStore._delete_state(self, uid)
         else:

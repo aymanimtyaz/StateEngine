@@ -14,9 +14,7 @@ StateEngine(_StateMachineBase)
 IntegratedStateEngine(_StateMachineBase, _StateStore)
 """
 
-# import sys
 from typing import Callable, Optional, Any, Union
-import traceback
 
 import redis
 
@@ -102,8 +100,8 @@ class _StateMachineBase:
 
         # if the current_handler is None, we are outside a handler context and an error will be raised
         if not self._current_handler:
-            raise OutsideHandlerContext("current_handler")
-        
+            raise OutsideHandlerContext("current_state")
+
         return self._current_state
 
     @property

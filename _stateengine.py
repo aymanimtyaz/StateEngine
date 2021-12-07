@@ -73,7 +73,7 @@ class _StateMachineBase:
             if self._default_state_handler is None:
                 raise NoDefaultState
             self._current_state = list(self._default_state_handler.keys())[0]
-            self._current_handler = self._default_state_handler[current_state]
+            self._current_handler = self._default_state_handler[self._current_state]
 
         # setting up the variables in case the current state is an intermediate state
         else:

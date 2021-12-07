@@ -100,22 +100,10 @@ class _StateMachineBase:
         Will raise an error if called from outside a handler context
         """
 
-        function_call_stack = [(stack_trace.replace("\n", "")).split(" ")[-1].replace("()", "")
-                               for stack_trace in traceback.format_stack()]
-        # if the function call stack does not contain one of the state handler functions in it, _get_current_state
-        # will have been called from outside a handler function and an OutsideHandlerException will be raised
-
-        state_handlers = list(self._state_handlers.values().__name__)
-
-        if len(set(function_call_stack).intersection(state_handlers)) == 0:
-            raise OutsideHandlerContext("current_state")
-
-        # # This if statement is absolute trash and will be improved
-        # # later OwO
-        # if (sys._getframe(2).f_code.co_name != list(self._default_state_handler.values())[0].__name__
-        #         and sys._getframe(2).f_code.co_name not in list(map(lambda f: f.__name__,
-        #         list(self._state_handlers.values())))):
-        #     raise OutsideHandlerContext("current_state")
+        # if the current_handler is None, we are outside a handler context and an error will be raised
+        if not self._current_handler:
+            raise OutsideHandlerContext("current_handler")
+        
         return self._current_state
 
     @property

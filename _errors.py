@@ -14,10 +14,14 @@ OutsideHandlerContext()
 RedisStateStoreError()
 """
 
+from traceback import format_exc
+
+from ._common_utils import State, Union, Any
+
 
 class NoHandlerAssociation(Exception):
 
-    def __init__(self, faulty_state):
+    def __init__(self, faulty_state: State):
         super().__init__(
             f"State '{faulty_state}' does not have a handler associated with "
             "it. Make sure that all state handlers only return valid state "
@@ -53,7 +57,7 @@ class InvalidStateType(Exception):
 
 class StateHandlerClash(Exception):
 
-    def __init__(self, state):
+    def __init__(self, state: State):
         super().__init__(
             f"state '{state}' is already linked to a callback.")
 
@@ -67,14 +71,14 @@ class InvalidUIDType(Exception):
 
 class OutsideHandlerContext(Exception):
 
-    def __init__(self, var):
+    def __init__(self, var: Union[State, Any]):
         super().__init__(
             f"Can not access \"{var}\" outside a handler context")
 
 
 class RedisStateStoreError(Exception):
 
-    def __init__(self, error):
-        super().__init__(
-            f"An error occurred while working with the Redis state store: {error} "
-            "Make sure Redis is running properly on the specified host and port.")
+    def __init__(self, error: Exception):
+        super().__init__(f"An error occurred while working with the Redis state store: {error}\n"
+                         f"Error Traceback: {format_exc()}\n"
+                         "Make sure Redis is running properly on the specified host and port.")

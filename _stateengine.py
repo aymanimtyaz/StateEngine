@@ -14,10 +14,13 @@ StateEngine(_StateMachineBase)
 IntegratedStateEngine(_StateMachineBase, _StateStore)
 """
 
-import sys
+# import sys
+from typing import Callable, Optional, Any, Union
+import traceback
 
 import redis
 
+from ._common_utils import State, UID
 from ._errors import (
     NoHandlerAssociation, NoDefaultState,
     DefaultStateHandlerClash, InvalidStateType, StateHandlerClash,
@@ -29,21 +32,22 @@ class _StateMachineBase:
     The base class that implements the finite state machine
     """
 
-    # stores the current state, should only be accessed within a 
-    # handler's context using _get_current_state property
-    _current_state = None
+    # stores the current state, should only be accessed within a handler's context using _get_current_state property
+    _current_state: State = None
+
+    # stores the handler that is being executed in the current context using the _get_current_handler property
+    _current_handler: Union[Callable, None] = None
 
     def __init__(self):
         self._state_handlers = {}
         self._default_state_handler = {}
 
-    def _register_handler(self, state, default=False):
+    def _register_handler(self, state: State, default: Optional[bool]=False) -> Callable:
         """ Registers a state to a handler function """
 
-        def state_to_handler_mapper(func):
+        def state_to_handler_mapper(func: Callable):
             # states must be either a string, integer, or float
-            if (not isinstance(state, (str, int, float, )) 
-                    or isinstance(state, bool)):
+            if not isinstance(state, (str, int, float, )) or isinstance(state, bool):
                 raise InvalidStateType
 
             # assigning default state to its handler
@@ -61,42 +65,72 @@ class _StateMachineBase:
 
         return state_to_handler_mapper
     
-    def _execute_handler(self, current_state, *args, **kwargs):
-        # executing a default state handler
-        if (current_state is None or current_state in 
-                self._default_state_handler):
+    def _execute_handler(self, current_state: State, *args, **kwargs) -> State:
+
+        # Setting up the handler context variables
+        # Setting up the variables in case current_state is None or the default state
+        if current_state is None or current_state in self._default_state_handler:
             if self._default_state_handler is None:
                 raise NoDefaultState
-            current_state = list(self._default_state_handler.keys())[0]
-            self._current_state = current_state
-            default_handler = self._default_state_handler[current_state]
-            new_state = default_handler(*args, **kwargs)
-            self._current_state = None
-        # executing an intermediate state handler
+            self._current_state = list(self._default_state_handler.keys())[0]
+            self._current_handler = self._default_state_handler[current_state]
+
+        # setting up the variables in case the current state is an intermediate state
         else:
             if current_state not in self._state_handlers:
                 raise NoHandlerAssociation(current_state)
-            self._current_state = current_state    
-            new_state = self._state_handlers[current_state](*args, **kwargs)
-            self._current_state = None
+            self._current_state = current_state
+            self._current_handler = self._state_handlers[current_state]
+
+        # executing the state machine and getting a new state
+        new_state = self._current_handler(*args, **kwargs)
+
+        # resetting the handler context variables to None as we aren't within the context of a handler anymore
+        self._current_state = None
+        self._current_handler = None
+
+        # returning the new state
         return new_state
 
     @property
-    def _get_current_state(self):
+    def _get_current_state(self) -> State:
         """
         Returns the current state
 
         Will raise an error if called from outside a handler context
         """
-        # This if statement is absolute trash and will be improved
-        # later OwO
-        if (sys._getframe(2).f_code.co_name \
-                != list(self._default_state_handler.values())[0].__name__ \
-                and sys._getframe(2).f_code.co_name not in \
-                list(map(lambda f: f.__name__, \
-                list(self._state_handlers.values())))):
+
+        function_call_stack = [(stack_trace.replace("\n", "")).split(" ")[-1].replace("()", "")
+                               for stack_trace in traceback.format_stack()]
+        # if the function call stack does not contain one of the state handler functions in it, _get_current_state
+        # will have been called from outside a handler function and an OutsideHandlerException will be raised
+
+        state_handlers = list(self._state_handlers.values().__name__)
+
+        if len(set(function_call_stack).intersection(state_handlers)) == 0:
             raise OutsideHandlerContext("current_state")
+
+        # # This if statement is absolute trash and will be improved
+        # # later OwO
+        # if (sys._getframe(2).f_code.co_name != list(self._default_state_handler.values())[0].__name__
+        #         and sys._getframe(2).f_code.co_name not in list(map(lambda f: f.__name__,
+        #         list(self._state_handlers.values())))):
+        #     raise OutsideHandlerContext("current_state")
         return self._current_state
+
+    @property
+    def _get_current_handler(self) -> Callable:
+        """
+        Returns the state handler function of the current context
+
+        Will raise an error if called from outside a handler context
+        """
+
+        # if the current handler variable is None, raise an Error
+        if not self._current_handler:
+            raise OutsideHandlerContext("current_handler")
+
+        return self._current_handler
 
 
 class _StateStore:
@@ -106,14 +140,14 @@ class _StateStore:
     also be used as a state store.
     """
 
-    def __init__(self, use_redis=False):
+    def __init__(self, use_redis: Optional[bool]=False) -> None:
         self._redis = use_redis
         if not self._redis:
-            self._store = {}
+            self._store: Any = dict()
         else:
             self._store = redis.Redis(decode_responses=True, db=1)
 
-    def _create_or_update_state(self, uid, state):
+    def _create_or_update_state(self, uid: UID, state: State) -> None:
         if (not isinstance(uid, (str, int, float, ))
                 or isinstance(uid, bool)):
             raise InvalidUIDType
@@ -121,24 +155,24 @@ class _StateStore:
             try:
                 self._store.set(uid, state)
             except redis.exceptions.ConnectionError as e:
-                raise RedisStateStoreError(str(e))
+                raise RedisStateStoreError(e)
         else:
             self._store[uid] = state
 
-    def _get_state(self, uid):
+    def _get_state(self, uid: UID) -> State:
         if self._redis is True:
             try:
                 return self._store.get(uid)
             except redis.exceptions.ConnectionError as e:
-                raise RedisStateStoreError(str(e))
+                raise RedisStateStoreError(e)
         return self._store.get(uid, None)
 
-    def _delete_state(self, uid):
+    def _delete_state(self, uid: UID) -> None:
         if self._redis is True:
             try:
                 self._store.delete(uid)
             except redis.exceptions.ConnectionError as e:
-                raise RedisStateStoreError(str(e))
+                raise RedisStateStoreError(e)
         if uid in self._store:
             del self._store[uid]
 
@@ -183,12 +217,13 @@ class StateEngine(_StateMachineBase):
 
     Properties
     ----------
-    current_state
+    - current_state
+    - current_handler
     """
     def __init__(self):
         super().__init__()
     
-    def state_handler(self, state, default=False):
+    def state_handler(self, state: State, default: Optional[bool]=False) -> Callable:
         """
         Register a state to a state handler using a state_handler decorator
 
@@ -201,7 +236,7 @@ class StateEngine(_StateMachineBase):
         """
         return _StateMachineBase._register_handler(self, state, default)
 
-    def execute(self, state, *args, **kwargs):
+    def execute(self, state: State, *args, **kwargs) -> State:
         """
         Run the state machine by passing it a state and inputs
         All arguments after state will be passed as input to the state 
@@ -217,12 +252,20 @@ class StateEngine(_StateMachineBase):
         return _StateMachineBase._execute_handler(self, state, *args, **kwargs)
 
     @property
-    def current_state(self):
+    def current_state(self) -> State:
         """
         Get the current state of a state machine, accessible only
         within a handler context.
         """
         return self._get_current_state
+
+    @property
+    def current_handler(self) -> Callable:
+        """
+        Get the current handler of a state machine, accessible only
+        within a handler context.
+        """
+        return self._get_current_handler
 
 
 class IntegratedStateEngine(_StateMachineBase, _StateStore):
@@ -267,9 +310,10 @@ class IntegratedStateEngine(_StateMachineBase, _StateStore):
 
     Properties
     ----------
-    current_state
+    - current_state
+    - current_handler
     """
-    def __init__(self, use_redis=False):
+    def __init__(self, use_redis: Optional[bool]=False) -> None:
         """
         Initialize an IntegratedStateMachine object
 
@@ -285,7 +329,7 @@ class IntegratedStateEngine(_StateMachineBase, _StateStore):
         _StateMachineBase.__init__(self)
         _StateStore.__init__(self, use_redis=use_redis)
         
-    def state_handler(self, state, default=False):
+    def state_handler(self, state: State, default: Optional[bool]=False) -> Callable:
         """
         Register a state to a state handler using a state_handler decorator
 
@@ -298,7 +342,7 @@ class IntegratedStateEngine(_StateMachineBase, _StateStore):
         """
         return _StateMachineBase._register_handler(self, state, default)
 
-    def execute(self, uid, *args, **kwargs):
+    def execute(self, uid: UID, *args, **kwargs) -> None:
         """
         Run a state machine by passing it a uid and an input(s)
 
@@ -330,9 +374,17 @@ class IntegratedStateEngine(_StateMachineBase, _StateStore):
             _StateStore._create_or_update_state(self, uid, new_state)
 
     @property
-    def current_state(self):
+    def current_state(self) -> State:
         """
         Get the current state of a state machine, accessible only
         within a handler context.
         """
         return self._get_current_state
+
+    @property
+    def current_handler(self) -> Callable:
+        """
+        Get the current handler of a state machine, accessible only
+        within a handler context.
+        """
+        return self._get_current_handler

@@ -1,6 +1,5 @@
-from typing import Union, Callable, Optional, Any
+from typing import Union
 
 
 # Defining type hints for use below
-State = Union[str, int, float, None]
-UID = Union[str, int, float]
+State = Union[str, int, None]

@@ -9,14 +9,12 @@ NoDefaultState()
 DefaultStateHandlerClash()
 IncorrectStateType()
 StateHandlerClash()
-InvalidUIDType()
 OutsideHandlerContext()
-RedisStateStoreError()
 """
 
-from traceback import format_exc
+from typing import Any
 
-from ._common_utils import State, Union, Any
+from ._common_utils import State, Union
 
 
 class NoHandlerAssociation(Exception):
@@ -62,23 +60,8 @@ class StateHandlerClash(Exception):
             f"state '{state}' is already linked to a callback.")
 
 
-class InvalidUIDType(Exception):
-
-    def __init__(self):
-        super().__init__(
-            "A UID Can only be of types 'str', 'int', or 'float'")
-
-
 class OutsideHandlerContext(Exception):
 
     def __init__(self, var: Union[State, Any]):
         super().__init__(
             f"Can not access \"{var}\" outside a handler context")
-
-
-class RedisStateStoreError(Exception):
-
-    def __init__(self, error: Exception):
-        super().__init__(f"An error occurred while working with the Redis state store: {error}\n"
-                         f"Error Traceback: {format_exc()}\n"
-                         "Make sure Redis is running properly on the specified host and port.")

@@ -137,6 +137,7 @@ The default handler (if defined) for a state machine can be executed by passing 
 
 ### Important points
 - A handler function should only return states. Furthermore, it should only return states that are registered to a state handler. Returning an unregistered state will raise a ```NoHandlerAssociation``` exception.
+- All handlers for a state machine should have the same type of input (number of inputs)
 - The states can only be of types ```str``` and ```int```. An ```InvalidStateType``` exception will be raised otherwise.
 - States must be unique. Two state handlers can not have the same state argument. A ```StateHandlerClash``` exception will be raised otherwise.
 - Only one default state can exist for a state machine. Trying to assign more than one default state handler will raise a ```DefaultStateHandlerClash``` exception.

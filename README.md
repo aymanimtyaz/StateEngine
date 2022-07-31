@@ -1,6 +1,12 @@
 # StateEngine
 Finite state machines in Python
 
+## Installation
+StateEngine can be installed from PyPI using pip as follows:
+```
+pip install python-stateengine
+```
+
 ## Example Usage
 ```python
 """
@@ -60,17 +66,11 @@ if __name__ == "__main__":
 
 ```
 
-## Installation
-The stateengine package is not on PyPi yet. To use stateengine, clone the repository and put it in the working directory of your project:
-```
-git clone https://github.com/aymanimtyaz/stateengine.git
-```
-
 ## Usage
 ### Creating a state machine
 A state machine can be created by creating a state machine object. The constructor does not take any arguments:
 ```python
-from stateengine import StateEngine
+from StateEngine import StateEngine
 
 state_machine = StateEngine()
 ...
